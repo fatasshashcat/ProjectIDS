@@ -2,26 +2,43 @@ breed [cops cop]
 breed [citizens citizen]
 breed [prisoners prisoner]
 
-globals [
+globals
+[
   prison-region
   restaurant-region
   destination-region
   work-region
   university-region
   assemblyhall-region
+
   cinema-region
   townsquare-region
-  time
+  workPlace-region
+  policeStation-region
+  espressoHouse-region
+  factory-region
+
+  year
+  month
+  day
+  hour
+  minute
+  clock
 ]
 
 citizens-own[
   state
+  last_state
   socialHunger
+  hunger
   atHome?
   inPrison?
   time-in-prison
   prison-duration
   troubleMaker?
+  atWork?
+  finishedWorking?
+  time
 ]
 
 cops-own [
@@ -33,24 +50,49 @@ cops-own [
 
 patches-own [region]
 
+;================================================================================================================================
 to setup
   clear-all
 
+  ask patches[set pcolor white - 2 set region "else"]
+
   set townsquare-region patches with [pxcor > -10 and pxcor < 10 and pycor > -10 and pycor < 10]
   ask townsquare-region [set pcolor gray set region "town square"]
+  ask patches with[pxcor = 1 and pycor = 9] [set plabel "TOWN SQUARE"]
 
-  set prison-region patches with [pxcor > 20 and pxcor < max-pxcor and pycor > 10 and pycor < max-pycor]
+  set prison-region patches with [pxcor > 15 and pxcor < 30 and pycor > -7 and pycor < 7]
   ask prison-region [ set pcolor red set region "prison"]
+  ask patches with[pxcor = 23 and pycor = 6] [set plabel "PRISON"]
 
+  set workPlace-region patches with [pxcor < -15 and pxcor > -30 and pycor > -7 and pycor < 7]
+  ask workPlace-region [ set pcolor brown set region "workPlace"]
+  ask patches with[pxcor = -21 and pycor = 6] [set plabel "WORK PLACE"]
 
-  ;set restaurant-region patches with [pxcor > min-pxcor + 0 and pxcor < max-pxcor - 25 and pycor > min-pycor + 0 and pycor < max-pycor - 25]
-  ;set destination-region patches with [pxcor < 0 and pycor > max-pycor - 10]
-  ;set work-region patches with [pxcor > max-pxcor - 10 and pycor < min-pycor + 10]
+  set university-region patches with [pxcor < -18 and pxcor > -28 and pycor > 10 and pycor < 20]
+  ask university-region [ set pcolor brown - 2 set region "university"]
+  ask patches with[pxcor = -21 and pycor = 19] [set plabel "POLICE STATION"]
 
+  set cinema-region patches with [pxcor > -6 and pxcor < 6 and pycor > 14 and pycor < 20]
+  ask cinema-region [ set pcolor green set region "cinema"]
+  ask patches with[pxcor = 0 and pycor = 19] [set plabel "CINEMA"]
 
-  ;ask restaurant-region [ set pcolor green set region "restaurant"]
-  ;ask destination-region [ set pcolor red set region]
-  ;ask work-region [ set pcolor white ]
+  set policeStation-region patches with [pxcor > 18 and pxcor < 28 and pycor > 10 and pycor < 20]
+  ask policeStation-region[ set pcolor red - 2 set region "policeStation"]
+  ask patches with[pxcor = 25 and pycor = 19] [set plabel "POLICE STATION"]
+
+  set espressoHouse-region patches with [pxcor > -6 and pxcor < 6 and pycor < -14 and pycor > -20]
+  ask espressoHouse-region [ set pcolor green set region "espressoHouse"]
+  ask patches with[pxcor = 2 and pycor = -15] [set plabel "ESPRESSO HOUSE"]
+
+  set factory-region patches with [pxcor < -18 and pxcor > -28 and pycor < -10 and pycor > -18]
+  ask factory-region [ set pcolor pink set region "factory"]
+  ask patches with[pxcor = -22 and pycor = -11] [set plabel "FACTORY"]
+
+  set restaurant-region patches with [pxcor > 18 and pxcor < 28 and pycor < -10 and pycor > -18]
+  ask restaurant-region [ set pcolor blue set region "restaurant"]
+  ask patches with[pxcor = 24 and pycor = -11] [set plabel "RESTAURANT"]
+
+  ask patches with [pxcor = 12 and pycor = -12] [set pcolor black set region "home"]
 
   create-cops num-cops [
     setxy random-xcor random-ycor
@@ -66,14 +108,36 @@ to setup
     set color white
     set size 2
     ;set label who
-    set label-color pink
+    ;set label-color pink
 
-    ;move-to one-of prison-region
+    move-to one-of patches with[region = "home"]
+    set atHome? true
+    set atWork? false
+    set finishedWorking? false
+    set inPrison? false
+    set troubleMaker? false
+    set socialHunger 0
+    set hunger 0
+    set time 0
+
+    set state [-> walk-around]
+    set last_state [-> walk-around]
 
   ]
+
+  ;set time 0
+  set year 2024
+  set month 1
+  set day 1
+  set hour 6
+  set minute 0
+
+  set clock 0
+
   reset-ticks
 end
 
+;================================================================================================================================
 to go
 
   ask turtles
@@ -82,18 +146,28 @@ to go
     if breed = citizens [citizen-behaviour]
   ]
 
+  calender
+
+  ;if clock = 960 [set clock 0]
+  if clock = 1440 [set clock 0] ;minutes in a day
+  set clock (clock + 1)
+  print clock
+
   tick
 end
 
+;================================================================================================================================
 to citizen-behaviour
   ifelse inPrison? = true
   [
     set state [-> prison]
+    set last_state 0
   ]
   [
     ifelse any? cops in-radius citizen-vision and troubleMaker? = true
     [
       set state [-> flee]
+      set last_state 0
     ]
     [
       ifelse hunger > 70
@@ -103,34 +177,57 @@ to citizen-behaviour
       [
         ifelse atHome? = true
         [
-          ifelse time > 7 and time < 8
+          ;ifelse time > 7 and time < 8
+          ifelse clock >= 60 and clock <= 120
           [
             set state [-> working]
+            set last_state [-> working]
           ]
           [
-            ifelse time = 10
+            ;ifelse time = 10
+            ifelse clock = 240
             [
               set state [-> studying]
+              set last_state [-> studying]
             ]
             [
-              ifelse time > 19 and time < 23
+              ;ifelse time > 19 and time < 23
+              ifelse clock >=  780 and clock <= 1020
               [
                 set state [-> relaxing-at-home]
               ]
               [
                 set state [-> walk-around]
+                set last_state [-> walk-around]
               ]
             ]
           ]
         ]
         [
-          set state[-> proactive]
+          ifelse atWork? = true
+          [
+
+          ]
+          [
+            ifelse last_state = 0
+            [
+              set state[-> proactive]
+            ]
+            [
+              set state last_state
+            ]
+          ]
         ]
       ]
     ]
   ]
+
+  run state
+  ;run last_state
+  ;print state
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to move-to-destination
   let destination one-of destination-region
   face destination
@@ -144,6 +241,7 @@ to move-to-destination
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to move-to-work
   let workarea one-of work-region
   face workarea
@@ -157,6 +255,7 @@ to move-to-work
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to flee
   let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops[
@@ -166,12 +265,14 @@ to flee
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to being-arrested
   move-to one-of prison-region
   set color red
   set state "in-prison"
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to prison
   set time-in-prison time-in-prison + 1
   if time-in-prison >= prison-duration[
@@ -181,7 +282,83 @@ to prison
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to working
+  ;print "working"
 
+  ifelse [region] of patch-here = "workPlace"
+  [
+    set atWork? true
+    set finishedWorking? false
+  ]
+  [
+    set heading towards one-of patches with[region = "workPlace"]
+    fd 1
+  ]
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to studying
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to relaxing-at-home
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to walk-around
+  ifelse time > 0
+  [
+    set atHome? false
+    set heading random 361
+    fd 1
+
+    set time (time - 1)
+    ;print time
+  ]
+  [
+    move-to one-of patches with[region = "home"]
+    set atHome? true
+    ;set time random 91 + 30
+    set time 61
+    ;print time
+  ]
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to proactive
+;  ifelse any? friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
+;  [
+;    ifelse time > 14 and time < 20 [set state [-> participate-in-social-event]]
+;    [
+;      ifelse time > 14 and time < 23 [set state [-> go-to-cinema]]
+;      [
+;        ;speaking up / demonstrating
+;      ]
+;    ]
+;  ]
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to meeting-friends
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to end-to-cinema
+end
+
+;================================================================================================================================
+to cop-behaviour
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+to move-cops
+  ask cops [
+    if state = "not-hungry" [chase]
+  ]
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to chase
   set heading random 360
   forward cop-speed
@@ -209,51 +386,34 @@ to chase
     set state "hungry"
   ]
 end
+;================================================================================================================================
+to calender
+  set minute (minute + 1)
 
-
-to move-cops
-  ask cops [
-    if state = "not-hungry" [chase]
+  if minute = 60
+  [
+    set minute 0
+    set hour (hour + 1)
   ]
-end
 
+  ;if hour = 22
+  if hour = 24
+  [
+    set hour 0
+    set day (day + 1)
+  ]
 
-to working
+  if day = 31
+  [
+    set day 1
+    set month (month + 1)
+  ]
 
-end
-
-to studying
-end
-
-to relaxing-at-home
-
-end
-
-to walk-around
-end
-
-to proactive
-;  ifelse any? friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
-;  [
-;    ifelse time > 14 and time < 20 [set state [-> participate-in-social-event]]
-;    [
-;      ifelse time > 14 and time < 23 [set state [-> go-to-cinema]]
-;      [
-;        ;speaking up / demonstrating
-;      ]
-;    ]
-;  ]
-end
-
-to meeting-friends
-
-end
-
-to end-to-cinema
-
-end
-
-to cop-behaviour
+  if month = 13
+  [
+    set month 1
+    set year (year + 1)
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -290,7 +450,7 @@ BUTTON
 84
 NIL
 go
-T
+NIL
 1
 T
 OBSERVER
@@ -417,6 +577,61 @@ show-intentions
 0
 1
 -1000
+
+MONITOR
+18
+58
+75
+103
+Year
+year
+17
+1
+11
+
+MONITOR
+76
+58
+133
+103
+Month
+month
+17
+1
+11
+
+MONITOR
+134
+58
+191
+103
+Day
+day
+17
+1
+11
+
+MONITOR
+49
+108
+106
+153
+Hour
+hour
+17
+1
+11
+
+MONITOR
+106
+108
+163
+153
+Minute
+minute
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?

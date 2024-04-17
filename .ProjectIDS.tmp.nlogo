@@ -36,7 +36,8 @@ citizens-own[
   time-in-prison
   prison-duration
   troubleMaker?
-
+  atWork?
+  finishedWorking?
   time
 ]
 
@@ -49,6 +50,7 @@ cops-own [
 
 patches-own [region]
 
+;================================================================================================================================
 to setup
   clear-all
 
@@ -110,6 +112,8 @@ to setup
 
     move-to one-of patches with[region = "home"]
     set atHome? true
+    set atWork? false
+    set finishedWorking? false
     set inPrison? false
     set troubleMaker? false
     set socialHunger 0
@@ -133,6 +137,7 @@ to setup
   reset-ticks
 end
 
+;================================================================================================================================
 to go
 
   ask turtles
@@ -141,38 +146,17 @@ to go
     if breed = citizens [citizen-behaviour]
   ]
 
-  set minute (minute + 1)
+  calender
 
-  if minute = 60
-  [
-    set minute 0
-    set hour (hour + 1)
-  ]
-
-  if hour = 22
-  [
-    set hour 6
-    set day (day + 1)
-  ]
-
-  if day = 31
-  [
-    set day 1
-    set month (month + 1)
-  ]
-
-  if month = 13
-  [
-    set month 1
-    set year (year + 1)
-  ]
-
+  ;if clock = 960 [set clock 0]
+  if clock = 1440 [set clock 0] ;minutes in a day
   set clock (clock + 1)
   print clock
 
   tick
 end
 
+;================================================================================================================================
 to citizen-behaviour
   ifelse inPrison? = true
   [
@@ -191,23 +175,24 @@ to citizen-behaviour
         set state [-> go-to-restaurant]
       ]
       [
-        if atHome? = true
+        ifelse atHome? = true
         [
           ;ifelse time > 7 and time < 8
-          ;ifelse hour > 7 and hour < 8
           ifelse clock >= 60 and clock <= 120
           [
             set state [-> working]
             set last_state [-> working]
           ]
           [
-            ifelse time = 10
+            ;ifelse time = 10
+            ifelse clock = 240
             [
               set state [-> studying]
               set last_state [-> studying]
             ]
             [
-              ifelse time > 19 and time < 23
+              ;ifelse time > 19 and time < 23
+              ifelse clock >=  780 and clock <= 1020
               [
                 set state [-> relaxing-at-home]
               ]
@@ -218,12 +203,20 @@ to citizen-behaviour
             ]
           ]
         ]
-        ifelse last_state = 0
         [
-          set state[-> proactive]
-        ]
-        [
-          set state last_state
+          ifelse atWork? = true
+          [
+
+          ]
+          [
+            ifelse last_state = 0
+            [
+              set state[-> proactive]
+            ]
+            [
+              set state last_state
+            ]
+          ]
         ]
       ]
     ]
@@ -234,6 +227,7 @@ to citizen-behaviour
   ;print state
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to move-to-destination
   let destination one-of destination-region
   face destination
@@ -247,6 +241,7 @@ to move-to-destination
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to move-to-work
   let workarea one-of work-region
   face workarea
@@ -260,6 +255,7 @@ to move-to-work
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to flee
   let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops[
@@ -269,12 +265,14 @@ to flee
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to being-arrested
   move-to one-of prison-region
   set color red
   set state "in-prison"
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to prison
   set time-in-prison time-in-prison + 1
   if time-in-prison >= prison-duration[
@@ -284,7 +282,7 @@ to prison
   ]
 end
 
-
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to chase
   set heading random 360
   forward cop-speed
@@ -314,29 +312,31 @@ to chase
 end
 
 
-to move-cops
-  ask cops [
-    if state = "not-hungry" [chase]
-  ]
-end
 
-
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to working
   ;print "working"
 
-  if [patch-here
-
-  set heading towards one-of patches with[region = "workPlace"]
-  fd 1
+  ifelse [region] of patch-here = "workPlace"
+  [
+    set atWork? true
+    set finishedWorking? false
+  ]
+  [
+    set heading towards one-of patches with[region = "workPlace"]
+    fd 1
+  ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to studying
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to relaxing-at-home
-
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to walk-around
   ifelse time > 0
   [
@@ -356,6 +356,7 @@ to walk-around
   ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to proactive
 ;  ifelse any? friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
 ;  [
@@ -369,15 +370,46 @@ to proactive
 ;  ]
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to meeting-friends
-
 end
 
+;--------------------------------------------------------------------------------------------------------------------------------------------
 to end-to-cinema
-
 end
 
+;================================================================================================================================
 to cop-behaviour
+end
+
+;================================================================================================================================
+to calender
+  set minute (minute + 1)
+
+  if minute = 60
+  [
+    set minute 0
+    set hour (hour + 1)
+  ]
+
+  ;if hour = 22
+  if hour = 24
+  [
+    set hour 0
+    set day (day + 1)
+  ]
+
+  if day = 31
+  [
+    set day 1
+    set month (month + 1)
+  ]
+
+  if month = 13
+  [
+    set month 1
+    set year (year + 1)
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
