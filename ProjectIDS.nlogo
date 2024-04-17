@@ -10,6 +10,8 @@ globals [
   university-region
   assemblyhall-region
   cinema-region
+  townsquare-region
+  time
 ]
 
 citizens-own[
@@ -17,33 +19,40 @@ citizens-own[
   socialHunger
   atHome?
   inPrison?
-  citizen-speed
-  citizen-vision-range
   time-in-prison
   prison-duration
+  troubleMaker?
 ]
 
 cops-own [
   state
-  cop-speed
-  cop-vision-range
   time-out-of-restaurant
   hunger
   go-to-restaurant
 ]
 
+patches-own [region]
+
 to setup
   clear-all
-  set prison-region patches with [pxcor > min-pxcor + 25 and pxcor < max-pxcor - 0 and pycor > min-pycor + 25 and pycor < max-pycor - 0]
-  set restaurant-region patches with [pxcor > min-pxcor + 0 and pxcor < max-pxcor - 25 and pycor > min-pycor + 0 and pycor < max-pycor - 25]
-  set destination-region patches with [pxcor < 0 and pycor > max-pycor - 10]
-  set work-region patches with [pxcor > max-pxcor - 10 and pycor < min-pycor + 10]
-  ask prison-region [ set pcolor yellow ]
-  ask restaurant-region [ set pcolor green ]
-  ask destination-region [ set pcolor red ]
-  ask work-region [ set pcolor white ]
 
-  create-cops cop-amount [
+  set townsquare-region patches with [pxcor > -10 and pxcor < 10 and pycor > -10 and pycor < 10]
+  ask townsquare-region [set pcolor gray set region "town square"]
+
+  set prison-region patches with [pxcor > 20 and pxcor < max-pxcor and pycor > 10 and pycor < max-pycor]
+  ask prison-region [ set pcolor red set region "prison"]
+
+
+  ;set restaurant-region patches with [pxcor > min-pxcor + 0 and pxcor < max-pxcor - 25 and pycor > min-pycor + 0 and pycor < max-pycor - 25]
+  ;set destination-region patches with [pxcor < 0 and pycor > max-pycor - 10]
+  ;set work-region patches with [pxcor > max-pxcor - 10 and pycor < min-pycor + 10]
+
+
+  ;ask restaurant-region [ set pcolor green set region "restaurant"]
+  ;ask destination-region [ set pcolor red set region]
+  ;ask work-region [ set pcolor white ]
+
+  create-cops num-cops [
     setxy random-xcor random-ycor
     set shape "car"
     set color blue
@@ -51,12 +60,15 @@ to setup
     set label-color white
   ]
 
-  create-citizens citizen-amount [
+  create-citizens num-citizens [
     setxy random-xcor random-ycor
     set shape "person"
     set color white
-    set label who
+    set size 2
+    ;set label who
     set label-color pink
+
+    ;move-to one-of prison-region
 
   ]
   reset-ticks
@@ -64,49 +76,59 @@ end
 
 to go
 
-  ask turtles [
-  if breed = cops [cop-behaviour]
-  if breed = citizen [citizen-behavior]
+  ask turtles
+  [
+    if breed = cops [cop-behaviour]
+    if breed = citizens [citizen-behaviour]
   ]
-  tick
 
+  tick
 end
 
-to citizen-behavior
-ifelse inPrison? = true
-  [set state [-> prison]]
+to citizen-behaviour
+  ifelse inPrison? = true
+  [
+    set state [-> prison]
+  ]
   [
     ifelse any? cops in-radius citizen-vision and troubleMaker? = true
-    [set state [-> flee]]
+    [
+      set state [-> flee]
+    ]
     [
       ifelse hunger > 70
-      [set state [-> go-to-restaurant]]
+      [
+        set state [-> go-to-restaurant]
+      ]
       [
         ifelse atHome? = true
         [
           ifelse time > 7 and time < 8
-          [set state [-> working]]
+          [
+            set state [-> working]
+          ]
           [
             ifelse time = 10
-            [set state [->studying]]
+            [
+              set state [-> studying]
+            ]
             [
               ifelse time > 19 and time < 23
-              [set state [->relaxing-at-home]]
               [
-                set state [-> walk-around];walk around
+                set state [-> relaxing-at-home]
+              ]
+              [
+                set state [-> walk-around]
               ]
             ]
           ]
         ]
         [
-          set state[->proactive];Proactive
+          set state[-> proactive]
         ]
       ]
     ]
   ]
-
-  ]
-
 end
 
 to move-to-destination
@@ -116,9 +138,9 @@ to move-to-destination
   if (patch-here = destination) [
   set state "free"
   ]
-  let nearby-cops cops in-radius citizen-vision-range
+  let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops [
-    run-away
+    ;run-away
   ]
 end
 
@@ -129,14 +151,14 @@ to move-to-work
   if (patch-here = workarea) [
   set state "working"
   ]
-  let nearby-cops cops in-radius citizen-vision-range
+  let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops [
-    run-away
+    ;run-away
   ]
 end
 
 to flee
-  let nearby-cops cops in-radius citizen-vision-range
+  let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops[
     let target one-of nearby-cops
     face target
@@ -163,7 +185,7 @@ end
 to chase
   set heading random 360
   forward cop-speed
-  let nearby-citizens citizens in-radius cop-vision-range
+  let nearby-citizens citizens in-radius cop-vision
   if any? nearby-citizens[
     let target one-of nearby-citizens
     if [state] of target != "in-prison" [
@@ -197,11 +219,11 @@ end
 
 
 to working
-;test test test
-;test igen
 
 end
 
+to studying
+end
 
 to relaxing-at-home
 
@@ -211,16 +233,16 @@ to walk-around
 end
 
 to proactive
-  ifelse any?friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
-  [
-    ifelse time > 14 and time < 20 [set state [-> participate-in-social-event]]
-    [
-      ifelse time > 14 and time < 23 [set state [-> go-to-cinema]]
-      [
-        ;speaking up / demonstrating
-      ]
-    ]
-  ]
+;  ifelse any? friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
+;  [
+;    ifelse time > 14 and time < 20 [set state [-> participate-in-social-event]]
+;    [
+;      ifelse time > 14 and time < 23 [set state [-> go-to-cinema]]
+;      [
+;        ;speaking up / demonstrating
+;      ]
+;    ]
+;  ]
 end
 
 to meeting-friends
@@ -230,15 +252,18 @@ end
 to end-to-cinema
 
 end
+
+to cop-behaviour
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+203
 10
-647
-448
+1132
+638
 -1
 -1
-13.0
+15.1
 1
 10
 1
@@ -248,15 +273,150 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+-30
+30
+-20
+20
 0
 0
 1
 ticks
 30.0
+
+BUTTON
+1240
+12
+1325
+84
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+1150
+12
+1235
+84
+NIL
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+1151
+165
+1323
+198
+citizen-vision
+citizen-vision
+0
+10
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+279
+1323
+312
+cop-vision
+cop-vision
+0
+10
+7.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+213
+1323
+246
+num-cops
+num-cops
+0
+10
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+99
+1323
+132
+num-citizens
+num-citizens
+0
+100
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+132
+1323
+165
+citizen-speed
+citizen-speed
+0
+10
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+246
+1323
+279
+cop-speed
+cop-speed
+0
+10
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+26
+13
+184
+46
+show-intentions
+show-intentions
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?

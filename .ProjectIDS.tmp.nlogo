@@ -2,48 +2,97 @@ breed [cops cop]
 breed [citizens citizen]
 breed [prisoners prisoner]
 
-globals [
+globals
+[
   prison-region
   restaurant-region
   destination-region
   work-region
   university-region
   assemblyhall-region
+
   cinema-region
+  townsquare-region
+  workPlace-region
+  policeStation-region
+  espressoHouse-region
+  factory-region
+
+  year
+  month
+  day
+  hour
+  minute
+  clock
 ]
 
 citizens-own[
   state
+  last_state
   socialHunger
+  hunger
   atHome?
   inPrison?
-  citizen-speed
-  citizen-vision-range
   time-in-prison
   prison-duration
+  troubleMaker?
+
+  time
 ]
 
 cops-own [
   state
-  cop-speed
-  cop-vision-range
   time-out-of-restaurant
   hunger
   go-to-restaurant
 ]
 
+patches-own [region]
+
 to setup
   clear-all
-  set prison-region patches with [pxcor > min-pxcor + 25 and pxcor < max-pxcor - 0 and pycor > min-pycor + 25 and pycor < max-pycor - 0]
-  set restaurant-region patches with [pxcor > min-pxcor + 0 and pxcor < max-pxcor - 25 and pycor > min-pycor + 0 and pycor < max-pycor - 25]
-  set destination-region patches with [pxcor < 0 and pycor > max-pycor - 10]
-  set work-region patches with [pxcor > max-pxcor - 10 and pycor < min-pycor + 10]
-  ask prison-region [ set pcolor yellow ]
-  ask restaurant-region [ set pcolor green ]
-  ask destination-region [ set pcolor red ]
-  ask work-region [ set pcolor white ]
 
-  create-cops cop-amount [
+  ask patches[set pcolor white - 2 set region "else"]
+
+  set townsquare-region patches with [pxcor > -10 and pxcor < 10 and pycor > -10 and pycor < 10]
+  ask townsquare-region [set pcolor gray set region "town square"]
+  ask patches with[pxcor = 1 and pycor = 9] [set plabel "TOWN SQUARE"]
+
+  set prison-region patches with [pxcor > 15 and pxcor < 30 and pycor > -7 and pycor < 7]
+  ask prison-region [ set pcolor red set region "prison"]
+  ask patches with[pxcor = 23 and pycor = 6] [set plabel "PRISON"]
+
+  set workPlace-region patches with [pxcor < -15 and pxcor > -30 and pycor > -7 and pycor < 7]
+  ask workPlace-region [ set pcolor brown set region "workPlace"]
+  ask patches with[pxcor = -21 and pycor = 6] [set plabel "WORK PLACE"]
+
+  set university-region patches with [pxcor < -18 and pxcor > -28 and pycor > 10 and pycor < 20]
+  ask university-region [ set pcolor brown - 2 set region "university"]
+  ask patches with[pxcor = -21 and pycor = 19] [set plabel "POLICE STATION"]
+
+  set cinema-region patches with [pxcor > -6 and pxcor < 6 and pycor > 14 and pycor < 20]
+  ask cinema-region [ set pcolor green set region "cinema"]
+  ask patches with[pxcor = 0 and pycor = 19] [set plabel "CINEMA"]
+
+  set policeStation-region patches with [pxcor > 18 and pxcor < 28 and pycor > 10 and pycor < 20]
+  ask policeStation-region[ set pcolor red - 2 set region "policeStation"]
+  ask patches with[pxcor = 25 and pycor = 19] [set plabel "POLICE STATION"]
+
+  set espressoHouse-region patches with [pxcor > -6 and pxcor < 6 and pycor < -14 and pycor > -20]
+  ask espressoHouse-region [ set pcolor green set region "espressoHouse"]
+  ask patches with[pxcor = 2 and pycor = -15] [set plabel "ESPRESSO HOUSE"]
+
+  set factory-region patches with [pxcor < -18 and pxcor > -28 and pycor < -10 and pycor > -18]
+  ask factory-region [ set pcolor pink set region "factory"]
+  ask patches with[pxcor = -22 and pycor = -11] [set plabel "FACTORY"]
+
+  set restaurant-region patches with [pxcor > 18 and pxcor < 28 and pycor < -10 and pycor > -18]
+  ask restaurant-region [ set pcolor blue set region "restaurant"]
+  ask patches with[pxcor = 24 and pycor = -11] [set plabel "RESTAURANT"]
+
+  ask patches with [pxcor = 12 and pycor = -12] [set pcolor black set region "home"]
+
+  create-cops num-cops [
     setxy random-xcor random-ycor
     set shape "car"
     set color blue
@@ -51,62 +100,138 @@ to setup
     set label-color white
   ]
 
-  create-citizens citizen-amount [
+  create-citizens num-citizens [
     setxy random-xcor random-ycor
     set shape "person"
     set color white
-    set label who
-    set label-color pink
+    set size 2
+    ;set label who
+    ;set label-color pink
+
+    move-to one-of patches with[region = "home"]
+    set atHome? true
+    set inPrison? false
+    set troubleMaker? false
+    set socialHunger 0
+    set hunger 0
+    set time 0
+
+    set state [-> walk-around]
+    set last_state [-> walk-around]
 
   ]
+
+  ;set time 0
+  set year 2024
+  set month 1
+  set day 1
+  set hour 6
+  set minute 0
+
+  set clock 0
+
   reset-ticks
 end
 
 to go
 
-  ask turtles [
-  if breed = cops [cop-behaviour]
-  if breed = citizen [citizen-behavior]
+  ask turtles
+  [
+    if breed = cops [cop-behaviour]
+    if breed = citizens [citizen-behaviour]
   ]
-  tick
 
+  set minute (minute + 1)
+
+  if minute = 60
+  [
+    set minute 0
+    set hour (hour + 1)
+  ]
+
+  if hour = 22
+  [
+    set hour 6
+    set day (day + 1)
+  ]
+
+  if day = 31
+  [
+    set day 1
+    set month (month + 1)
+  ]
+
+  if month = 13
+  [
+    set month 1
+    set year (year + 1)
+  ]
+
+  set clock (clock + 1)
+  print clock
+
+  tick
 end
 
-to citizen-behavior
-ifelse inPrison? = true
-  [set state [-> prison]]
+to citizen-behaviour
+  ifelse inPrison? = true
+  [
+    set state [-> prison]
+    set last_state 0
+  ]
   [
     ifelse any? cops in-radius citizen-vision and troubleMaker? = true
-    [set state [-> flee]]
+    [
+      set state [-> flee]
+      set last_state 0
+    ]
     [
       ifelse hunger > 70
-      [set state [-> go-to-restaurant]]
       [
-        ifelse atHome? = true
+        set state [-> go-to-restaurant]
+      ]
+      [
+        if atHome? = true
         [
-          ifelse time > 7 and time < 8
-          [set state [-> working]]
+          ;ifelse time > 7 and time < 8
+          ;ifelse hour > 7 and hour < 8
+          ifelse clock >= 60 and clock <= 120
+          [
+            set state [-> working]
+            set last_state [-> working]
+          ]
           [
             ifelse time = 10
-            [set state [->studying]]
+            [
+              set state [-> studying]
+              set last_state [-> studying]
+            ]
             [
               ifelse time > 19 and time < 23
-              [set state [->relaxing-at-home]]
               [
-                set state [-> walk-around];walk around
+                set state [-> relaxing-at-home]
+              ]
+              [
+                set state [-> walk-around]
+                set last_state [-> walk-around]
               ]
             ]
           ]
         ]
+        ifelse last_state = 0
         [
-          set state[->proactive];Proactive
+          set state[-> proactive]
+        ]
+        [
+          set state last_state
         ]
       ]
     ]
   ]
 
-  ]
-
+  run state
+  ;run last_state
+  ;print state
 end
 
 to move-to-destination
@@ -116,9 +241,9 @@ to move-to-destination
   if (patch-here = destination) [
   set state "free"
   ]
-  let nearby-cops cops in-radius citizen-vision-range
+  let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops [
-    run-away
+    ;run-away
   ]
 end
 
@@ -129,14 +254,14 @@ to move-to-work
   if (patch-here = workarea) [
   set state "working"
   ]
-  let nearby-cops cops in-radius citizen-vision-range
+  let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops [
-    run-away
+    ;run-away
   ]
 end
 
 to flee
-  let nearby-cops cops in-radius citizen-vision-range
+  let nearby-cops cops in-radius citizen-vision
   if any? nearby-cops[
     let target one-of nearby-cops
     face target
@@ -163,7 +288,7 @@ end
 to chase
   set heading random 360
   forward cop-speed
-  let nearby-citizens citizens in-radius cop-vision-range
+  let nearby-citizens citizens in-radius cop-vision
   if any? nearby-citizens[
     let target one-of nearby-citizens
     if [state] of target != "in-prison" [
@@ -197,29 +322,51 @@ end
 
 
 to working
+  ;print "working"
 
+  if [patch-here
 
+  set heading towards one-of patches with[region = "workPlace"]
+  fd 1
 end
 
+to studying
+end
 
 to relaxing-at-home
 
 end
 
 to walk-around
+  ifelse time > 0
+  [
+    set atHome? false
+    set heading random 361
+    fd 1
+
+    set time (time - 1)
+    ;print time
+  ]
+  [
+    move-to one-of patches with[region = "home"]
+    set atHome? true
+    ;set time random 91 + 30
+    set time 61
+    ;print time
+  ]
 end
 
 to proactive
-  ifelse any?friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
-  [
-    ifelse time > 14 and time < 20 [set state [-> participate-in-social-event]]
-    [
-      ifelse time > 14 and time < 23 [set state [-> go-to-cinema]]
-      [
-        ;speaking up / demonstrating
-      ]
-    ]
-  ]
+;  ifelse any? friends in-radius citizen-vision and socialHunger > 50 [set state [-> meeting-friends]]
+;  [
+;    ifelse time > 14 and time < 20 [set state [-> participate-in-social-event]]
+;    [
+;      ifelse time > 14 and time < 23 [set state [-> go-to-cinema]]
+;      [
+;        ;speaking up / demonstrating
+;      ]
+;    ]
+;  ]
 end
 
 to meeting-friends
@@ -229,15 +376,18 @@ end
 to end-to-cinema
 
 end
+
+to cop-behaviour
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+203
 10
-647
-448
+1132
+638
 -1
 -1
-13.0
+15.1
 1
 10
 1
@@ -247,15 +397,205 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+-30
+30
+-20
+20
 0
 0
 1
 ticks
 30.0
+
+BUTTON
+1240
+12
+1325
+84
+NIL
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+1150
+12
+1235
+84
+NIL
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+1151
+165
+1323
+198
+citizen-vision
+citizen-vision
+0
+10
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+279
+1323
+312
+cop-vision
+cop-vision
+0
+10
+7.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+213
+1323
+246
+num-cops
+num-cops
+0
+10
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+99
+1323
+132
+num-citizens
+num-citizens
+0
+100
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+132
+1323
+165
+citizen-speed
+citizen-speed
+0
+10
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1151
+246
+1323
+279
+cop-speed
+cop-speed
+0
+10
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+26
+13
+184
+46
+show-intentions
+show-intentions
+0
+1
+-1000
+
+MONITOR
+18
+58
+75
+103
+Year
+year
+17
+1
+11
+
+MONITOR
+76
+58
+133
+103
+Month
+month
+17
+1
+11
+
+MONITOR
+134
+58
+191
+103
+Day
+day
+17
+1
+11
+
+MONITOR
+49
+108
+106
+153
+Hour
+hour
+17
+1
+11
+
+MONITOR
+106
+108
+163
+153
+Minute
+minute
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
